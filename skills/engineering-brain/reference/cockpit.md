@@ -33,6 +33,7 @@ Prints `{ "ok": true, "seq": n }`. The server rejects unknown types — only the
 | `classified` | `{ level: 0-4, levelName, scores: { complexity, risk, uncertainty, reversibility, blastRadius } each "low"\|"medium"\|"high", rationale, plannedSteps: [string], skippedSteps: [{ step, why }] }` |
 | `reclassified` | `{ fromLevel, toLevel, why }` |
 | `step` | `{ name, status: "start"\|"done"\|"skipped", detail? }` |
+| `thinking` | `{ now, headed? }` — live plain-language pulse: what you are doing right now, where you are heading. Rendered as popups + header strip. One pulse per genuine shift of attention, not per file read; never a substitute for `step`/`inspection`. |
 | `inspection` | `{ area, summary, files: [string], claims: [{ text, evidence: "observed"\|"measured"\|"inferred"\|"estimated"\|"unknown" }] }` |
 | `system_map` | `{ nodes: [Node], edges: [Edge], focus: [nodeId] }` — `focus` = nodes touched by the current request. The server also merges nodes/edges into `map.json` (upsert nodes by `id`, edges by `(from, to, kind)`). |
 | `concern` | `{ severity: "info"\|"warning"\|"critical", title, detail, recommendation? }` |
@@ -44,6 +45,8 @@ Prints `{ "ok": true, "seq": n }`. The server rejects unknown types — only the
 | `note` | `{ text }` |
 | `user_action` | journaled copy of a `/decide` action `{ id, type, decisionId?, choiceId?, message? }` — written by the server; you never emit this yourself |
 | `session_end` | `{ outcome: "completed"\|"abandoned"\|"handed_off" }` |
+
+**Plain-language layer**: any event's data may carry `plain: string` (a jargon-free Layer-1 rendering shown by the UI's default Simple view), and `options` may carry `situation: string` (plain description of the current state, shown above the cards). Write `tagline`/`pros`/`cons`/`why`/`thinking` for a non-technical reader; `detail`/`scores`/`claims`/file lists are the technical layer the UI collapses in Simple view. Full guidance: [plain-language.md](plain-language.md).
 
 Typical sequences:
 

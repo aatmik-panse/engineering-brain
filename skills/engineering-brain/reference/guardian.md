@@ -75,22 +75,24 @@ Hard limits: never emit more than one `critical` interruption per finding; never
 
 ## Emit examples
 
+Give every concern a `plain` field translating the finding into its practical consequence — what it means for the app and its users, no jargon (translation table in `plain-language.md`).
+
 Silent info concern (cockpit only, no chat mention):
 
 ```bash
-node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type concern --data '{"severity":"info","title":"StorageAdapter has one implementation","detail":"src/storage/adapter.ts defines an interface implemented only by PostgresStorage. Keeping it, but it is speculative.","recommendation":"Inline the interface if no second backend appears by the next touch of this module."}'
+node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type concern --data '{"severity":"info","title":"StorageAdapter has one implementation","detail":"src/storage/adapter.ts defines an interface implemented only by PostgresStorage. Keeping it, but it is speculative.","plain":"There is an extra layer here built for a second storage system that does not exist. It is harmless for now, just unnecessary — worth removing if it never gets used.","recommendation":"Inline the interface if no second backend appears by the next touch of this module."}'
 ```
 
 Warning (also say one sentence in chat: "Heads up — the cart already computes discounts in src/cart/pricing.ts; I'm reusing it instead of duplicating."):
 
 ```bash
-node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type concern --data '{"severity":"warning","title":"Requested change would duplicate discount logic","detail":"Checkout API needs order-total discounting; src/cart/pricing.ts:41 calculateDiscount() already implements the rules for cart preview. A second copy would drift on the next rule change.","recommendation":"Extract calculateDiscount into src/pricing/ and call it from both paths. Doing this now."}'
+node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type concern --data '{"severity":"warning","title":"Requested change would duplicate discount logic","detail":"Checkout API needs order-total discounting; src/cart/pricing.ts:41 calculateDiscount() already implements the rules for cart preview. A second copy would drift on the next rule change.","plain":"The discount rules would live in two places, and the next time a rule changes, the two copies can silently disagree — customers could see one price in the cart and pay another. I am reusing the existing rules instead.","recommendation":"Extract calculateDiscount into src/pricing/ and call it from both paths. Doing this now."}'
 ```
 
 Critical — stop and ask (concern, then decision, then background poll):
 
 ```bash
-node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type concern --data '{"severity":"critical","title":"Plan status would get a second source of truth","detail":"Adding users.plan while Stripe subscription state is authoritative. Webhook lag or a failed sync means access control disagrees with billing.","recommendation":"Read plan from the existing subscriptions cache (synced by webhook, single writer) instead of a new column."}'
+node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type concern --data '{"severity":"critical","title":"Plan status would get a second source of truth","detail":"Adding users.plan while Stripe subscription state is authoritative. Webhook lag or a failed sync means access control disagrees with billing.","plain":"The same information — which plan a user is on — would live in two places, and they can silently disagree. When they do, someone gets features they did not pay for, or a paying customer gets locked out.","recommendation":"Read plan from the existing subscriptions cache (synced by webhook, single writer) instead of a new column."}'
 node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type decision_needed --data '{"decisionId":"d-guardian-1","kind":"approve","prompt":"Storing plan on users creates a second source of truth for billing state. Proceed as requested, or switch to reading the synced subscriptions cache?","choices":[{"id":"proceed","label":"Proceed with users.plan as requested"},{"id":"cache","label":"Use the subscriptions cache (recommended)"}]}'
 node <skill-root>/scripts/poll.mjs --session eb-m1x9k2-a4f7   # run as a background task — never block the foreground shell; the harness notifies when it returns
 ```

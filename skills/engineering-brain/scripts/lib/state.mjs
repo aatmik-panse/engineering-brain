@@ -237,6 +237,7 @@ export const EVENT_TYPES = [
   'classified',
   'reclassified',
   'step',
+  'thinking',
   'inspection',
   'system_map',
   'concern',

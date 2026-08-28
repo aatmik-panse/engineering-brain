@@ -30,6 +30,10 @@ Never pretend options are equal. Exactly one option carries `recommended: true`,
 
 In chat, give the one-paragraph version: the options exist, which you recommend, and the single strongest reason. The cockpit carries the full matrix.
 
+## Write for the human deciding
+
+The person choosing may not be an engineer. `situation`, `tagline`, `pros`, `cons`, and `why` are jargon-free consequence language — what each choice means for the app, its users, speed, cost, and future work ("renders happen in the background, so the page never freezes", not "async job dispatch via BullMQ"). `scores`, `comparisonDimensions`, and their notes are the technical layer; the UI collapses them behind a "Show me how this works technically" expander in Simple view, so never put decision-critical information only there. Open with `situation`: one plain paragraph describing the current state and why a decision is needed — it renders above the cards. Full rules and translation patterns: `plain-language.md`.
+
 ## Emitting the comparison
 
 Full 3-option example — "add PDF export to invoices":
@@ -37,6 +41,7 @@ Full 3-option example — "add PDF export to invoices":
 ```bash
 node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type options --data '{
   "decisionId": "d1",
+  "situation": "Building a PDF of an invoice takes several seconds. If the app builds it while the user waits on the page, everything about that request is stuck until the file is ready — so we need to decide where that slow work should happen.",
   "comparisonDimensions": ["development effort", "latency", "infra cost", "reliability", "scalability", "reversibility"],
   "options": [
     {
@@ -90,7 +95,7 @@ node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type options --dat
 Then request the decision and start the background poll:
 
 ```bash
-node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type decision_needed --data '{"decisionId":"d1","kind":"choose_option","prompt":"PDF export: inline render (A), existing worker (B, recommended), or dedicated service (C)?","choices":[{"id":"A","label":"A - Inline render"},{"id":"B","label":"B - Existing worker (recommended)"},{"id":"C","label":"C - Dedicated service"}]}'
+node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type decision_needed --data '{"decisionId":"d1","kind":"choose_option","prompt":"PDF export: inline render (A), existing worker (B, recommended), or dedicated service (C)?","plain":"I have compared the realistic ways to add PDF export. I recommend reusing the background helper the app already runs — pick an option or tell me what matters most to you.","choices":[{"id":"A","label":"A - Inline render"},{"id":"B","label":"B - Existing worker (recommended)"},{"id":"C","label":"C - Dedicated service"}]}'
 node <skill-root>/scripts/poll.mjs --session eb-m1x9k2-a4f7   # run as a background task — never block the foreground shell; the harness notifies on completion
 ```
 

@@ -17,7 +17,7 @@ Tell the user the URL exactly once ("Cockpit: http://127.0.0.1:8641/?session=eb-
 
 **Trigger**: all five scores low. Typos, label text, isolated style tweaks, mechanical renames.
 **Steps**: implement → validate (run the narrowest relevant check: render, lint, one test) → one-line confirmation to the user.
-**Events**: none. No cockpit, no server, no `brain.mjs`.
+**Events**: none. No cockpit, no server, no `brain.mjs`. No `thinking` pulses either — L0 emits nothing.
 **Do NOT**: boot the cockpit, ask questions, present options, explain architecture, write a summary longer than the diff.
 **Decision points**: none.
 **Re-evaluate**: if the "trivial" edit turns out to touch a second subsystem or a cached/derived value, stop, reclassify (usually to L2), boot the cockpit, emit `classified` (original level + rationale) then `reclassified`.
@@ -26,7 +26,7 @@ Tell the user the URL exactly once ("Cockpit: http://127.0.0.1:8641/?session=eb-
 
 **Trigger**: small but meaningful; one subsystem, one obvious approach, but the user should understand what changed and why.
 **Steps**: understand (read the touched code) → one-paragraph "what I'll do and why" in chat → implement → explain changes (what/where/why, 3–6 lines).
-**Events**: none. No cockpit, no server.
+**Events**: none. No cockpit, no server. No `thinking` events either — L1 emits nothing.
 **Do NOT**: boot the cockpit, generate options, emit anything, ask questions unless a clarifying answer would change the implementation (materiality test), pad the explanation.
 **Decision points**: none — proceed without waiting after stating the plan.
 **Re-evaluate**: same escalation rule as L0. The most common escalation in practice is L1 → L2 during the "understand" step.
@@ -39,14 +39,19 @@ Tell the user the URL exactly once ("Cockpit: http://127.0.0.1:8641/?session=eb-
 1. Boot (above), then emit `classified`:
 ```bash
 node <skill-root>/scripts/emit.mjs --session eb-mfwz1x2b-a4f1 --type classified \
-  --data '{"level":2,"levelName":"Investigate","scores":{"complexity":"low","risk":"medium","uncertainty":"medium","reversibility":"low","blastRadius":"medium"},"rationale":"Sort order flows through SQL, Redis cache key, and scroll cursor; stale-cache risk. One sane approach once mapped.","plannedSteps":["inspect order read path","map touched systems","implement sort + cache key change","validate cache invalidation"],"skippedSteps":[{"step":"options","why":"no genuinely distinct strategies — cache key must change either way"},{"step":"approval","why":"trivially revertible"}]}'
+  --data '{"level":2,"levelName":"Investigate","scores":{"complexity":"low","risk":"medium","uncertainty":"medium","reversibility":"low","blastRadius":"medium"},"rationale":"Sort order flows through SQL, Redis cache key, and scroll cursor; stale-cache risk. One sane approach once mapped.","plain":"This looks like a small change, but the sort order passes through three parts of the app, so I will check each one before touching code.","plannedSteps":["inspect order read path","map touched systems","implement sort + cache key change","validate cache invalidation"],"skippedSteps":[{"step":"options","why":"no genuinely distinct strategies — cache key must change either way"},{"step":"approval","why":"trivially revertible"}]}'
+```
+Between milestones, keep the human oriented with `thinking` pulses — plain language, one per genuine shift of attention, never per file read (rules in `plain-language.md`):
+```bash
+node <skill-root>/scripts/emit.mjs --session eb-mfwz1x2b-a4f1 --type thinking \
+  --data '{"now":"Looking at how the orders list fetches and remembers its results","headed":"then I will know whether changing the sort can show anyone stale data"}'
 ```
 2. Bracket each step with `step` events; emit `inspection` with evidence-labeled claims as you learn:
 ```bash
 node <skill-root>/scripts/emit.mjs --session eb-mfwz1x2b-a4f1 --type step \
   --data '{"name":"inspect order read path","status":"start"}'
 node <skill-root>/scripts/emit.mjs --session eb-mfwz1x2b-a4f1 --type inspection \
-  --data '{"area":"orders read path","summary":"Sort is applied in three layers; cache key omits sort direction, so flipping the default serves stale ordering for ~15 min.","files":["src/api/orders.ts","src/cache/keys.ts","web/src/hooks/useOrders.ts"],"claims":[{"text":"ORDER BY created_at ASC hardcoded in listOrders query","evidence":"observed"},{"text":"cache TTL is 900s","evidence":"observed"},{"text":"~15 min of stale ordering after deploy if key unchanged","evidence":"inferred"}]}'
+  --data '{"area":"orders read path","summary":"Sort is applied in three layers; cache key omits sort direction, so flipping the default serves stale ordering for ~15 min.","plain":"The app remembers order lists for 15 minutes to stay fast. If I flip the sort without also updating that memory, people would see the old order for up to 15 minutes — so I will update both together.","files":["src/api/orders.ts","src/cache/keys.ts","web/src/hooks/useOrders.ts"],"claims":[{"text":"ORDER BY created_at ASC hardcoded in listOrders query","evidence":"observed"},{"text":"cache TTL is 900s","evidence":"observed"},{"text":"~15 min of stale ordering after deploy if key unchanged","evidence":"inferred"}]}'
 node <skill-root>/scripts/emit.mjs --session eb-mfwz1x2b-a4f1 --type step \
   --data '{"name":"inspect order read path","status":"done","detail":"3 layers involved; cache key is the trap"}'
 ```
@@ -73,6 +78,8 @@ node <skill-root>/scripts/emit.mjs --session eb-mfwz1x2b-a4f1 --type validation 
 
 **Trigger**: two or more genuinely distinct strategies whose long-term consequences differ; medium+ blast radius. Example: adding rate limiting (in-process vs Redis-backed vs gateway).
 **Steps**: boot + `classified` (level 3, `"levelName":"Architecture Decision"`) → understand goal (ask only material questions) → inspect architecture (`step`/`inspection`/`system_map` as in L2) → generate genuinely distinct alternatives (rules in `options.md`) → compare + recommend → human decides → implement → validate → learning → end.
+
+Pulse `thinking` at each shift of attention — moving from inspection to comparing alternatives, from comparison to the recommendation (e.g. `{"now":"Weighing the three realistic ways to add rate limiting","headed":"then I will recommend one and ask you to choose"}`). Plain language, one per shift, per `plain-language.md`.
 
 1. Emit `options` (write the JSON to a temp file — this payload is large):
 ```bash
@@ -112,6 +119,8 @@ node <skill-root>/scripts/poll.mjs --session eb-mfx2c8qq-7b2e --timeout 600000  
 
 **Trigger**: major or risky — data migrations, new infrastructure, high failure consequences, hard-to-reverse changes. Example: moving user uploads from local disk to S3.
 **Steps**: boot + `classified` (level 4, `"levelName":"System Design"`) → deep architecture analysis → dependency mapping (`system_map` with full touched subgraph + `focus`) → failure point analysis (per `failure-analysis.md`; emit each material finding as `concern`) → scaling scenarios + cost modeling (per `scaling-cost.md`; emit as `inspection` claims with honest evidence labels — `estimated` and `unknown` are respectable) → alternative architectures (`options`, as L3, when genuinely distinct designs exist) → implementation phases (emit a `note` listing the phases; each phase gets `step` start/done) → **approval** → phased execution → validation per phase → learning → end.
+
+L4 sessions are long; `thinking` pulses are what keep the human oriented between milestones. Emit one at each shift of attention — entering failure analysis, starting cost modeling, beginning each execution phase (e.g. `{"now":"Checking what could go wrong while files exist in two places","headed":"then I can design the migration so nothing is lost mid-move"}`). Plain language only, per `plain-language.md`.
 
 Failure-analysis concern example:
 ```bash

@@ -61,6 +61,10 @@ Poll returns one action like `{"id":"a-3","ts":1724800000000,"type":"decision","
 
 **Chat is overhead once the cockpit is live.** Emit detail to the cockpit; keep chat to decisions, blockers, and one-line progress.
 
+## Human understanding
+
+The skill exists as much for the human's understanding as for the engineering. Assume the user may not know architecture, queues, or dependencies — translate complexity into decisions. Before any significant change, they must be able to answer five questions: what does the app do now, what is the problem, why is it a problem, what are the realistic options, what do you recommend and why. Explain the decision, not the technology ("the app waits for everything to finish before it can continue" — not "synchronous coupling"); pair every technical claim with its practical consequence; default to the simplest useful explanation and let the user open the technical layer. In cockpit events this is concrete: write `tagline`/`pros`/`cons`/`why` jargon-free, add `plain` to significant events, give `options` a plain `situation` paragraph, and emit `thinking` pulses (`{ now, headed }`, plain language) between milestones so the live popups always show what you are doing and where you are heading. Full guidance: `reference/plain-language.md`.
+
 ## The rules
 
 1. **Goal over literal request.** If a better solution exists than what was asked for, say so before implementing.
@@ -95,6 +99,7 @@ Before any significant change, run the 11-check degradation checklist — duplic
 | Creating or updating GitHub issues; project stages | `reference/issue-template.md` |
 | Wrapping up: learning report + system map update | `reference/post-implementation.md` |
 | Building or merging `map.json` from real code | `reference/system-map.md` |
+| Explaining to a non-technical user; plain-language layers, thinking pulses | `reference/plain-language.md` |
 | Anything cockpit: boot, endpoints, all event types, poll loop, recovery | `reference/cockpit.md` |
 
 ## Anti-bureaucracy guardrails

@@ -103,8 +103,15 @@ Project root = walk up from cwd to the nearest directory containing `.git` (fall
 | `validation` | `{ summary, checks: [{ name, result: "pass"\|"fail"\|"skipped", detail? }] }` |
 | `learning` | `{ whatChanged: [string], howItWorksNow, whyThisApproach, whatWasAvoided, newRisks: [string], watchNext: [string] }` |
 | `note` | `{ text }` |
+| `thinking` | `{ now, headed? }` — a live plain-language pulse: what the agent is doing right now and where it is heading next. Both fields MUST be plain language (no jargon). Emitted freely between milestones; rendered as live popups + a header status strip, and logged mutedly in the trail. |
 | `user_action` | (journaled copy of a /decide action) `{ id, type, decisionId?, choiceId?, message? }` |
 | `session_end` | `{ outcome: "completed"\|"abandoned"\|"handed_off" }` |
+
+### Plain-language layer (progressive disclosure)
+
+- ANY event's `data` MAY additionally carry `plain: string` — a Layer-1 plain-language rendering of the event for non-technical readers ("Right now the app waits for everything to finish before it can continue…"). The server passes it through untouched.
+- `options` data MAY additionally carry `situation: string` — a plain-language description of the current situation ("Your app currently handles this process in one long chain…") rendered above the option cards.
+- Rule of thumb for authors: `tagline`, `pros`, `cons`, `why`, `thinking.now/headed`, and `plain`/`situation` are written for a non-technical human (practical consequences, no jargon); `detail`, `scores`, `claims`, file lists are the technical layer.
 
 ## User actions: UI → agent (via POST /decide, consumed via GET /poll)
 
@@ -170,6 +177,10 @@ Layout:
 
 ## UI additions
 
+- **Simple / Technical view toggle** in the header, default **Simple**, persisted in localStorage. The cockpit's default job is to reduce complexity, not display it.
+  - *Simple view*: trail entries prefer `data.plain` when present (fall back to the technical summary); the Options tab shows `situation` as a lead quote, then cards with tagline + pros/cons + the recommendation clearly marked, with per-card score bars and comparison dimensions collapsed behind a "Show me how this works technically" expander; inspection file lists and claim evidence collapse behind the same expander pattern; the System Map tab stays available but is not the landing tab.
+  - *Technical view*: everything visible, current behavior.
+- **Live thinking popups**: `thinking` events render as stacked toast popups (top-right, max 3 visible, auto-dismiss ~6s, newest on top) showing `now` (+ `headed` as a second line "→ heading: …"), AND update a persistent header status strip ("Now: … → …") that always reflects the latest `thinking`. Toasts must never steal focus or block the decision dock. Thinking entries appear in the trail as muted one-liners.
 - **Session picker**: header dropdown listing sessions from `/sessions` (newest first, active ones marked); switching updates `?session=` and re-subscribes SSE from seq 0.
 - Keyboard: decision dock choices reachable by Tab, activate with Enter; visible focus rings throughout.
 - Graceful degradation: long strings truncate with ellipsis + title attr; 500+ events must not freeze the trail (render incrementally).

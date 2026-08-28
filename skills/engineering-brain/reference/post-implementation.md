@@ -29,10 +29,11 @@ Six sections, in this order — never fewer. Write it in chat (compact) and emit
 
 ### The learning event
 
-Emit the same content structured. Exact payload shape (all six fields required):
+Emit the same content structured. Exact payload shape (all six fields required; `plain` is optional — one sentence a non-technical person understands, summarizing what changed for them, per `plain-language.md`):
 
 ```bash
 node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type learning --data '{
+  "plain": "Invoice PDFs are now built in the background: clicking Download no longer makes the page wait, and the link appears as soon as the file is ready.",
   "whatChanged": [
     "render-invoice-pdf job added to worker (src/worker/jobs/renderInvoicePdf.ts)",
     "GET /api/invoices/:id/pdf-status + enqueue call in src/api/invoices.ts",

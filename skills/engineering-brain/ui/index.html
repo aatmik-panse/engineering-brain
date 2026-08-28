@@ -18,12 +18,18 @@
   <select id="session-picker" class="session-picker hidden" aria-label="Switch session"></select>
   <div id="request-text" class="request" title="">No session selected</div>
   <div class="header-right">
+    <div id="view-toggle" class="view-toggle" role="group" aria-label="Detail level">
+      <button type="button" data-view="simple" aria-pressed="true" class="active">Simple</button>
+      <button type="button" data-view="technical" aria-pressed="false">Technical</button>
+    </div>
     <span id="escalation" class="escalation hidden"></span>
     <span id="level-badge" class="level-badge lv-none">L?</span>
     <span id="session-status" class="session-status"><span class="dot"></span><span class="label">idle</span></span>
     <span id="conn" class="conn conn-connecting" title="Connecting to the brain server…"><span class="dot"></span><span class="label">connecting</span></span>
   </div>
 </header>
+
+<div id="think-strip" class="think-strip hidden" aria-live="polite"></div>
 
 <div id="layout">
   <aside id="trail-pane">
@@ -79,6 +85,8 @@
 </div>
 
 <section id="dock" class="hidden" aria-live="polite"></section>
+
+<div id="toasts" class="toast-stack" aria-live="polite"></div>
 
 <footer id="steerbar">
   <span class="steer-hint">Steer</span>

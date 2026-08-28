@@ -67,6 +67,27 @@ function mutedP(text) {
   return s ? `<p class="muted"${titleAttr(s, 200)}>${esc(s)}</p>` : '';
 }
 
+/* Layer-1 plain-language paragraph (Simple view lead text) */
+function plainP(text) {
+  const s = String(text ?? '');
+  return s ? `<p class="plain-text"${titleAttr(s, 200)}>${esc(s)}</p>` : '';
+}
+
+/* The one consistent progressive-disclosure component: technical layer folded
+ * behind a small expander. Used everywhere Simple view hides detail. */
+function techExpander(innerHTML) {
+  if (!innerHTML) return '';
+  return `<details class="tech-details"><summary>Show me how this works technically</summary><div class="tech-body">${innerHTML}</div></details>`;
+}
+
+/* Simple view: when an event's data carries `plain`, lead with it and fold the
+ * technical body behind the expander. Otherwise render the body unchanged. */
+function layered(d, technicalBody) {
+  const plain = typeof d?.plain === 'string' ? d.plain : '';
+  if (!isSimple() || !plain) return technicalBody || '';
+  return plainP(plain) + techExpander(technicalBody || '');
+}
+
 function evidenceBadge(ev) {
   const raw = String(ev ?? 'unknown').toLowerCase();
   const k = EVIDENCE_VALUES.includes(raw) ? raw : 'unknown';
@@ -141,6 +162,9 @@ const mapModel = {
 
 const ui = {
   sessionPicker: $('#session-picker'),
+  viewToggle: $('#view-toggle'),
+  thinkStrip: $('#think-strip'),
+  toasts: $('#toasts'),
   requestText: $('#request-text'),
   levelBadge: $('#level-badge'),
   escalation: $('#escalation'),
@@ -246,6 +270,94 @@ ui.tabs.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+/* ------------------------------------------------- simple / technical view
+ * Default Simple: the cockpit's job is to reduce complexity, not display it.
+ * Persisted in localStorage; toggling replays the session through the normal
+ * batched journal path so every renderer re-reads the mode. */
+
+const VIEW_KEY = 'eb-view-mode';
+let viewMode = 'simple';
+try { if (localStorage.getItem(VIEW_KEY) === 'technical') viewMode = 'technical'; } catch { /* storage blocked */ }
+
+function isSimple() { return viewMode !== 'technical'; }
+
+function applyViewToggle() {
+  for (const btn of $all('button[data-view]', ui.viewToggle)) {
+    const on = btn.dataset.view === viewMode;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+}
+
+function setViewMode(mode) {
+  const next = mode === 'technical' ? 'technical' : 'simple';
+  if (next === viewMode) return;
+  viewMode = next;
+  try { localStorage.setItem(VIEW_KEY, viewMode); } catch { /* storage blocked */ }
+  applyViewToggle();
+  rerenderCurrentSession();
+}
+
+ui.viewToggle.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-view]');
+  if (btn) setViewMode(btn.dataset.view);
+});
+applyViewToggle();
+
+/* --------------------------------------------- thinking: strip + live toasts
+ * `thinking` events are a plain-language pulse. The header strip always shows
+ * the latest one (including during journal replay); toasts fire only for live
+ * SSE events — never while a replay batch is active. */
+
+function setThinkStrip(d) {
+  const now = String(d?.now ?? '');
+  const headed = String(d?.headed ?? '');
+  if (!now && !headed) return;
+  const text = `Now: ${now || '…'}${headed ? ' → ' + headed : ''}`;
+  ui.thinkStrip.innerHTML =
+    `<span class="think-dot" aria-hidden="true"></span>` +
+    `<span class="think-text">${esc(text)}</span>`;
+  ui.thinkStrip.title = text;
+  ui.thinkStrip.classList.remove('hidden');
+}
+
+function clearThinkStrip() {
+  ui.thinkStrip.classList.add('hidden');
+  ui.thinkStrip.innerHTML = '';
+  ui.thinkStrip.removeAttribute('title');
+}
+
+const MAX_TOASTS = 3;
+const TOAST_MS = 6000;
+
+function showThinkingToast(d) {
+  const now = String(d?.now ?? '');
+  const headed = String(d?.headed ?? '');
+  if (!now && !headed) return;
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML =
+    `<p class="toast-now"${titleAttr(now, 90)}>${esc(now || '…')}</p>` +
+    (headed ? `<p class="toast-headed"${titleAttr(headed, 90)}>→ heading: ${esc(headed)}</p>` : '');
+  el.addEventListener('click', () => dismissToast(el)); // click-to-dismiss; never steals focus
+  ui.toasts.prepend(el); // newest on top
+  for (const old of $all('.toast:not(.leaving)', ui.toasts).slice(MAX_TOASTS)) dismissToast(old);
+  el._timer = setTimeout(() => dismissToast(el), TOAST_MS);
+}
+
+function dismissToast(el) {
+  if (!el || el.classList.contains('leaving')) return;
+  clearTimeout(el._timer);
+  el.classList.add('leaving');
+  const remove = () => el.remove();
+  el.addEventListener('animationend', remove, { once: true });
+  setTimeout(remove, 500); // safety net when animations are disabled
+}
+
+function clearToasts() {
+  for (const el of $all('.toast', ui.toasts)) { clearTimeout(el._timer); el.remove(); }
+}
+
 /* -------------------------------------------------------- batched rendering
  * During journal replay (boot / session switch) hundreds of events arrive at
  * once. Instead of touching the live DOM per event (layout thrash from the
@@ -311,7 +423,7 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'session',
       title: 'Session started',
-      body: quoteHTML(d?.request),
+      body: layered(d, quoteHTML(d?.request)),
     });
   },
 
@@ -330,11 +442,11 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'classified',
       title: `Classified <b class="lv-inline lv${lvl}">L${lvl}</b> ${esc(d?.levelName || LEVEL_NAMES[lvl] || '')}`,
-      body:
+      body: layered(d,
         (chips ? `<div class="chip-row">${chips}</div>` : '') +
         mutedP(d?.rationale) +
         (planned ? `<div class="mini-title">Planned</div><ul class="step-list">${planned}</ul>` : '') +
-        (skipped ? `<div class="mini-title">Skipped</div><ul class="step-list">${skipped}</ul>` : ''),
+        (skipped ? `<div class="mini-title">Skipped</div><ul class="step-list">${skipped}</ul>` : '')),
     });
   },
 
@@ -347,7 +459,7 @@ const trailRenderers = {
     const entry = trailEntry({
       ts, tone: up ? 'escalate' : 'deescalate',
       title: `${up ? 'Escalated' : 'De-escalated'} <b class="resc">L${esc(d?.fromLevel)} → L${esc(d?.toLevel)}</b>`,
-      body: mutedP(d?.why),
+      body: layered(d, mutedP(d?.why)),
     });
     // level color morph: the marker sweeps from the old level's color to the new one
     entry.style.setProperty('--from-c', `var(--lv${from})`);
@@ -360,7 +472,21 @@ const trailRenderers = {
     trailEntry({
       ts, tone: `step-${status || 'start'}`,
       title: `<span class="step-glyph">${glyph}</span> ${esc(d?.name || 'step')} <span class="step-status">${esc(status)}</span>`,
-      body: mutedP(d?.detail),
+      body: layered(d, mutedP(d?.detail)),
+    });
+  },
+
+  thinking(d, ts) {
+    setThinkStrip(d);
+    if (!batch) showThinkingToast(d); // live SSE only — never during journal replay
+    const now = String(d?.now ?? '');
+    const headed = String(d?.headed ?? '');
+    trailEntry({
+      ts, tone: 'thinking',
+      title:
+        `<span class="think-now"${titleAttr(now, 90)}>${esc(now || 'thinking…')}</span>` +
+        (headed ? ` <span class="think-headed"${titleAttr(headed, 90)}>→ ${esc(headed)}</span>` : ''),
+      body: '',
     });
   },
 
@@ -369,13 +495,24 @@ const trailRenderers = {
       .map((f) => `<code class="file-chip" title="${esc(f)}">${esc(f)}</code>`).join('');
     const claims = (Array.isArray(d?.claims) ? d.claims : [])
       .map((c) => `<li>${evidenceBadge(c?.evidence)}<span>${esc(c?.text)}</span></li>`).join('');
+    const fileRow = files ? `<div class="file-row">${files}</div>` : '';
+    const claimList = claims ? `<ul class="claim-list">${claims}</ul>` : '';
+    let body;
+    if (isSimple()) {
+      // claims stay visible (with evidence badges); the file list — and the
+      // technical summary when `plain` replaces it — fold behind the expander
+      const plain = typeof d?.plain === 'string' ? d.plain : '';
+      body =
+        (plain ? plainP(plain) : mutedP(d?.summary)) +
+        claimList +
+        techExpander((plain ? mutedP(d?.summary) : '') + fileRow);
+    } else {
+      body = mutedP(d?.summary) + fileRow + claimList;
+    }
     trailEntry({
       ts, tone: 'inspection',
       title: `Inspected <b>${esc(d?.area || 'system')}</b>`,
-      body:
-        mutedP(d?.summary) +
-        (files ? `<div class="file-row">${files}</div>` : '') +
-        (claims ? `<ul class="claim-list">${claims}</ul>` : ''),
+      body,
     });
   },
 
@@ -388,7 +525,7 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'map',
       title: 'System map updated',
-      body: `<p class="muted num">${n} node${n === 1 ? '' : 's'}, ${e} edge${e === 1 ? '' : 's'}${f ? `, ${f} in focus` : ''} · <a href="#" data-goto-tab="map">view map</a></p>`,
+      body: layered(d, `<p class="muted num">${n} node${n === 1 ? '' : 's'}, ${e} edge${e === 1 ? '' : 's'}${f ? `, ${f} in focus` : ''} · <a href="#" data-goto-tab="map">view map</a></p>`),
     });
   },
 
@@ -397,9 +534,9 @@ const trailRenderers = {
     trailEntry({
       ts, tone: `concern-${sev}`,
       title: `<span class="concern-glyph">${sev === 'info' ? 'ℹ' : '⚠'}</span> ${esc(d?.title || 'Concern')}`,
-      body:
+      body: layered(d,
         mutedP(d?.detail) +
-        (d?.recommendation ? `<p class="reco"><span>Recommendation</span>${esc(d.recommendation)}</p>` : ''),
+        (d?.recommendation ? `<p class="reco"><span>Recommendation</span>${esc(d.recommendation)}</p>` : '')),
     });
   },
 
@@ -412,9 +549,9 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'options',
       title: `${opts.length} option${opts.length === 1 ? '' : 's'} on the table`,
-      body:
+      body: layered(d,
         `<p class="muted">${opts.map((o) => esc(o?.name || o?.id)).join(' · ')}</p>` +
-        (rec ? `<p class="muted">Recommended: <b>${esc(rec.name || rec.id)}</b></p>` : '') +
+        (rec ? `<p class="muted">Recommended: <b>${esc(rec.name || rec.id)}</b></p>` : '')) +
         `<p class="muted"><a href="#" data-goto-tab="options">compare in Options tab</a></p>`,
     });
   },
@@ -427,7 +564,7 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'decision',
       title: `Decision needed <span class="decision-kind">${esc(d?.kind || '')}</span>`,
-      body: quoteHTML(d?.prompt),
+      body: layered(d, quoteHTML(d?.prompt)),
     });
   },
 
@@ -441,9 +578,9 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'implementation',
       title: 'Implementation',
-      body:
+      body: layered(d,
         mutedP(d?.summary) +
-        (changes ? `<ul class="change-list">${changes}</ul>` : ''),
+        (changes ? `<ul class="change-list">${changes}</ul>` : '')),
     });
   },
 
@@ -457,9 +594,9 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'validation',
       title: 'Validation',
-      body:
+      body: layered(d,
         mutedP(d?.summary) +
-        (checks ? `<ul class="check-list">${checks}</ul>` : ''),
+        (checks ? `<ul class="check-list">${checks}</ul>` : '')),
     });
   },
 
@@ -469,12 +606,13 @@ const trailRenderers = {
     trailEntry({
       ts, tone: 'learning',
       title: 'Post-implementation report',
-      body: `<p class="muted">${esc((Array.isArray(d?.whatChanged) && d.whatChanged[0]) || 'What changed, why, and what to watch next.')} · <a href="#" data-goto-tab="learning">read report</a></p>`,
+      body: layered(d, `<p class="muted">${esc((Array.isArray(d?.whatChanged) && d.whatChanged[0]) || 'What changed, why, and what to watch next.')}</p>`) +
+        `<p class="muted"><a href="#" data-goto-tab="learning">read report</a></p>`,
     });
   },
 
   note(d, ts) {
-    trailEntry({ ts, tone: 'note', title: 'Note', body: mutedP(d?.text) });
+    trailEntry({ ts, tone: 'note', title: 'Note', body: layered(d, mutedP(d?.text)) });
   },
 
   user_action(d, ts) {
@@ -507,6 +645,7 @@ const trailRenderers = {
   session_end(d, ts) {
     const outcome = String(d?.outcome || 'completed');
     setSessionStatus(outcome.replace('_', ' '), outcome === 'completed' ? 'done' : 'ended');
+    clearThinkStrip();
     trailEntry({
       ts, tone: 'session',
       title: `Session ended — ${esc(outcome.replace('_', ' '))}`,
@@ -585,16 +724,28 @@ function renderOptions(data) {
   const dims = Array.isArray(data?.comparisonDimensions) ? data.comparisonDimensions : [];
   const opts = Array.isArray(data?.options) ? data.options : [];
   if (opts.length === 0) return;
+  const simple = isSimple();
 
   const cards = opts.map((o) => {
     const rows = dims.map((dim) => {
       const cell = o?.scores?.[dim] || {};
       return `<div class="score-row"><span class="score-dim" title="${esc(dim)}${cell?.note ? esc(' — ' + cell.note) : ''}">${esc(dim)}</span>${scoreBar(cell?.score, cell?.note)}</div>`;
     }).join('');
+    const scores = rows ? `<div class="scores">${rows}</div>` : '';
     const pros = (Array.isArray(o?.pros) ? o.pros : [])
       .map((p) => `<li class="pro">${esc(p)}</li>`).join('');
     const cons = (Array.isArray(o?.cons) ? o.cons : [])
       .map((c) => `<li class="con">${esc(c)}</li>`).join('');
+    const prosCons = (pros || cons) ? `<div class="pros-cons"><ul>${pros}${cons}</ul></div>` : '';
+    const debt = o?.debt ? `<p class="debt"><span>Debt</span>${esc(o.debt)}</p>` : '';
+    const why = o?.why ? `<p class="why">${esc(o.why)}</p>` : '';
+    // Simple view: tagline + effort + pros/cons + why stay; the per-dimension
+    // score bars (with the dimensions header) and debt fold behind the expander
+    const dimsHead = dims.length
+      ? `<div class="mini-title">Compared on: ${dims.map((x) => esc(x)).join(' · ')}</div>` : '';
+    const body = simple
+      ? prosCons + why + techExpander(dimsHead + scores + debt)
+      : scores + prosCons + debt + why;
     return (
       `<article class="option-card${o?.recommended ? ' recommended' : ''}">` +
       (o?.recommended ? `<span class="rec-tag">Recommended</span>` : '') +
@@ -604,16 +755,20 @@ function renderOptions(data) {
       (o?.tagline ? `<p class="tagline">${esc(o.tagline)}</p>` : '') +
       (o?.effort ? `<span class="effort">effort: ${esc(o.effort)}</span>` : '') +
       `</header>` +
-      (rows ? `<div class="scores">${rows}</div>` : '') +
-      ((pros || cons) ? `<div class="pros-cons"><ul>${pros}${cons}</ul></div>` : '') +
-      (o?.debt ? `<p class="debt"><span>Debt</span>${esc(o.debt)}</p>` : '') +
-      (o?.why ? `<p class="why">${esc(o.why)}</p>` : '') +
+      body +
       `</article>`
     );
   }).join('');
 
+  const situation = typeof data?.situation === 'string' ? data.situation : '';
+  const lead = (simple && situation)
+    ? `<blockquote class="situation"${titleAttr(situation, 300)}>${esc(situation)}</blockquote>` : '';
+  const meta = simple
+    ? `Decision ${esc(data?.decisionId ?? '')} · ${opts.length} options`
+    : `Decision ${esc(data?.decisionId ?? '')} · ${opts.length} options · ${dims.length} dimensions`;
   ui.optionsBody.innerHTML =
-    `<div class="options-meta muted num">Decision ${esc(data?.decisionId ?? '')} · ${opts.length} options · ${dims.length} dimensions</div>` +
+    lead +
+    `<div class="options-meta muted num">${meta}</div>` +
     `<div class="options-grid">${cards}</div>`;
 }
 
@@ -1200,6 +1355,8 @@ function resetSessionState() {
   state.optionsByDecision.clear();
   state.choicesByDecision.clear();
   hideDock();
+  clearThinkStrip();
+  clearToasts();
   activityCapNote = null;
   for (const btn of $all('#tabs button')) btn.classList.remove('pulse');
   ui.trail.innerHTML = EMPTY_HTML.trail;
@@ -1213,6 +1370,16 @@ function resetSessionState() {
   ui.escalation.innerHTML = '';
   setSessionStatus('idle', 'idle');
   mapModel.focus = new Set();
+}
+
+/* Full re-render of the current session (used by the view toggle): the same
+ * batched journal-replay path as boot/session switch — replay never toasts. */
+function rerenderCurrentSession() {
+  const id = state.session;
+  if (!id) return;
+  resetSessionState();
+  state.session = id;
+  loadSession(id);
 }
 
 function pickSession() {

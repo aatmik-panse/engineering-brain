@@ -1,7 +1,7 @@
 {
   "name": "engineering-brain",
   "description": "An engineering judgment layer for Claude Code: classifies every request into workflow levels 0-4, decides how much process is warranted, inspects the real system, compares architectural options, and streams its reasoning to a live visual cockpit in your browser.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Aatmik Panse"
   }
