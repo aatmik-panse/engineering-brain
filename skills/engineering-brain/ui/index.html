@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Engineering Brain — Cockpit</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%232fbfa7'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='%230b0c0f'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Engineering Brain</span>
+  </div>
+  <select id="session-picker" class="session-picker hidden" aria-label="Switch session"></select>
+  <div id="request-text" class="request" title="">No session selected</div>
+  <div class="header-right">
+    <span id="escalation" class="escalation hidden"></span>
+    <span id="level-badge" class="level-badge lv-none">L?</span>
+    <span id="session-status" class="session-status"><span class="dot"></span><span class="label">idle</span></span>
+    <span id="conn" class="conn conn-connecting" title="Connecting to the brain server…"><span class="dot"></span><span class="label">connecting</span></span>
+  </div>
+</header>
+
+<div id="layout">
+  <aside id="trail-pane">
+    <div class="pane-title">Decision Trail</div>
+    <div id="trail">
+      <div class="empty"><span class="empty-glyph" aria-hidden="true">◈</span><span class="empty-title">No decisions yet</span><span class="empty-hint">The trail fills in as the brain classifies, inspects, and decides.</span></div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <nav id="tabs" role="tablist">
+      <button type="button" data-tab="map" class="active" role="tab" aria-selected="true">System Map</button>
+      <button type="button" data-tab="options" role="tab" aria-selected="false">Options</button>
+      <button type="button" data-tab="learning" role="tab" aria-selected="false">Learning</button>
+      <button type="button" data-tab="activity" role="tab" aria-selected="false">Activity</button>
+    </nav>
+
+    <section id="tab-map" class="tab-panel active" role="tabpanel">
+      <div id="map-stage">
+        <svg id="map-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" aria-label="System architecture graph">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 9 5 L 0 9 z" fill="#3d3d46"></path>
+            </marker>
+          </defs>
+          <g id="map-edges"></g>
+          <g id="map-nodes"></g>
+        </svg>
+        <div id="map-legend" class="hidden"></div>
+        <div id="map-empty" class="empty stage-empty"><span class="empty-glyph" aria-hidden="true">⬡</span><span class="empty-title">No system map yet</span><span class="empty-hint">The brain publishes one after inspecting the codebase.</span></div>
+      </div>
+      <aside id="map-detail" class="hidden"></aside>
+    </section>
+
+    <section id="tab-options" class="tab-panel" role="tabpanel">
+      <div id="options-body">
+        <div class="empty"><span class="empty-glyph" aria-hidden="true">⇄</span><span class="empty-title">No options yet</span><span class="empty-hint">The brain proposes alternatives when a decision genuinely has more than one good answer.</span></div>
+      </div>
+    </section>
+
+    <section id="tab-learning" class="tab-panel" role="tabpanel">
+      <div id="learning-body">
+        <div class="empty"><span class="empty-glyph" aria-hidden="true">✎</span><span class="empty-title">No report yet</span><span class="empty-hint">The post-implementation report appears here once the work lands.</span></div>
+      </div>
+    </section>
+
+    <section id="tab-activity" class="tab-panel" role="tabpanel">
+      <div id="activity-body">
+        <div class="empty"><span class="empty-glyph" aria-hidden="true">≡</span><span class="empty-title">No events yet</span><span class="empty-hint">Every raw event lands here as it streams in.</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<section id="dock" class="hidden" aria-live="polite"></section>
+
+<footer id="steerbar">
+  <span class="steer-hint">Steer</span>
+  <input id="steer-input" type="text" autocomplete="off" spellcheck="false"
+         placeholder="Nudge the brain — a preference, a constraint, a correction…">
+  <button id="steer-send" type="button">Send</button>
+  <span id="steer-flash" class="steer-flash" aria-live="polite"></span>
+</footer>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

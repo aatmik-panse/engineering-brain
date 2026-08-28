@@ -1,0 +1,14 @@
+{
+  "name": "engineering-brain",
+  "description": "Engineering Brain — an engineering judgment layer for Claude Code with a live visual cockpit.",
+  "owner": {
+    "name": "Aatmik Panse"
+  },
+  "plugins": [
+    {
+      "name": "engineering-brain",
+      "source": ".",
+      "description": "Engineering Brain — adaptive workflow levels, opinionated architecture decisions, and a live visual cockpit for watching the agent think."
+    }
+  ]
+}

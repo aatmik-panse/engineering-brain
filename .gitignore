@@ -1,0 +1,10 @@
+# Engineering Brain runtime state (created in target projects, never committed)
+.engineering-brain/
+
+# OS / editor
+.DS_Store
+
+# Browser-test artifacts
+.playwright-mcp/
+
+node_modules/
