@@ -97,4 +97,4 @@ node <skill-root>/scripts/emit.mjs --session eb-m1x9k2-a4f7 --type decision_need
 node <skill-root>/scripts/poll.mjs --session eb-m1x9k2-a4f7   # run as a background task — never block the foreground shell; the harness notifies when it returns
 ```
 
-React to the poll result: `decision` with a `choiceId` → follow that choice; `steer`/`answer` → incorporate the message and keep polling if the decision is still open; `timeout` → say so in chat once and proceed with the recommended (safer) path ONLY if that path is itself easily reversible, noting the assumption in the eventual `learning` event — if every path is hard to reverse, do not proceed (re-emit `decision_needed` and ask in chat, per `options.md`).
+React to the poll result: `decision` with a `choiceId` → follow that choice; `steer`/`answer` → incorporate the message and keep polling if the decision is still open; `timeout` → ask in chat; do not pick (`cockpit.md`).

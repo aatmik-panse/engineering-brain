@@ -73,7 +73,7 @@ Prints exactly one JSON user action and exits 0. `poll.mjs` keeps its own HTTP t
 | `decision` | The user chose. Acknowledge in one chat line, proceed with that option, stop polling for this decision. |
 | `answer` | Free-text reply to your `decision_needed` question. Incorporate it and proceed. |
 | `steer` | Mid-flight guidance, possibly unrelated to any pending decision. Adjust course, emit a `note` or `step` reflecting it, and immediately start the next background poll — steering does not resolve a decision. |
-| `timeout` | Nobody acted. If the user answered in chat meanwhile, proceed with that. Otherwise ask once in chat; if the decision still can't wait AND the recommended path is easily reversible, take it, say so, and emit a `note` naming the default. If every path is hard to reverse, never default — re-emit `decision_needed` and ask in chat. |
+| `timeout` | Ask in chat; do not pick. |
 
 If the user answers in chat while a poll is in flight, act on the chat answer; when the poll later returns, reconcile: identical → ignore; conflicting → the newest instruction wins, confirm in chat.
 

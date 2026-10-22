@@ -55,7 +55,7 @@ node <skill-root>/scripts/emit.mjs --session eb-m0x2a1-9f3c --type decision_need
 node <skill-root>/scripts/poll.mjs --session eb-m0x2a1-9f3c --timeout 600000   # run in background
 ```
 
-Poll returns one action like `{"id":"a-3","ts":1724800000000,"type":"decision","decisionId":"d1","choiceId":"B"}`. If it returns `steer`, apply the guidance and poll again. If it returns `{"type":"timeout"}`, ask in chat instead. Full protocol and all event payloads: `reference/cockpit.md`.
+Poll returns one action like `{"id":"a-3","ts":1724800000000,"type":"decision","decisionId":"d1","choiceId":"B"}`. If it returns `steer`, apply the guidance and poll again. If it returns `{"type":"timeout"}`, ask in chat; do not pick. Full protocol and all event payloads: `reference/cockpit.md`.
 
 **Recovery**: after any interruption or restart, run `node <skill-root>/scripts/status.mjs` before assuming state. The journal (`.engineering-brain/sessions/<id>/journal.jsonl`) is canonical, and pending UI actions survive server restarts — never re-ask the user for a decision already made in the UI; check the journal and poll first.
 
